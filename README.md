@@ -3,6 +3,10 @@
 既存の Invoice API（ASP.NET Core / Docker / PostgreSQL）を題材に、AWS SAA 学習の実践として、
 VPC 設計から EC2、RDS、CloudWatch、ALB までを段階的に構築・検証した記録です。
 
+> **現在の状態**  
+> 本ハンズオンは短期検証として完了しており、エビデンス取得後にハンズオン専用の AWS リソースは削除済みです。  
+> 以下の構成図・設定内容・スクリーンショットは、削除前の検証時点の構成を記録したものです。
+
 > **目的**  
 > 単にサービスを作成するだけではなく、既存の ConoHa VPS 構成と比較しながら、
 > AWS におけるネットワーク分離、マネージド DB、IAM Role、監視、ロードバランシングを実際に確認することを目的としています。
@@ -22,7 +26,7 @@ VPC 設計から EC2、RDS、CloudWatch、ALB までを段階的に構築・検�
 - Application Load Balancer + Target Group の構築
 - EC2 への HTTP 直接アクセスを遮断し、ALB 経由のみ許可
 
-## AWS 構成図
+## AWS 構成図（検証時）
 
 ```mermaid
 flowchart TB
@@ -183,6 +187,8 @@ CloudWatch Logs 上で `Starting InvoiceSystem.Api` および `/health` の HTTP
 
 ## 実施エビデンス
 
+以下のスクリーンショットは、AWS リソース削除前に取得した検証時点の証跡です。
+
 公開用スクリーンショットでは、AWS アカウント ID、ARN、各種リソース ID、Public IP / DNS、
 RDS Endpoint 等、構成説明に不要な識別情報をマスキングしています。
 パスワード、Secret Key、JWT Key、SSH 秘密鍵、MFA Secret 等は掲載していません。
@@ -237,17 +243,21 @@ RDS Endpoint 等、構成説明に不要な識別情報をマスキングして�
 - ALB DNS → `/health` → `Healthy`
 - EC2 Public IPv4 → `/health` → 接続タイムアウト（ALB 経由のみに制限）
 
-## 既知の課題
+## 検証時の補足
 
-一部の MyAccount 系 API で `404` が発生する事象を確認しています。
+AWS インフラの疎通確認とは別に、検証中に一部の MyAccount 系 API で `404` を確認しました。
 
 ```text
 GET /api/members/me/invoices/with-balance
 GET /api/members/me/invoices/{id}
 ```
 
-Swagger 上では対象 Endpoint が公開されており、ALB 経由で Swagger UI / `/health` も到達可能なため、
-AWS のネットワーク / ALB 構築とは切り分けて、アプリケーション側のデータ条件・認証・実装を別途調査します。
+Swagger 上では対象 Endpoint が公開されており、ALB 経由で Swagger UI / `/health` への到達も確認できていたため、
+VPC / Security Group / ALB の疎通問題とは切り分けています。
+
+本ハンズオンでは AWS インフラ構築・監視・通信経路の検証を完了条件とし、
+この事象はアプリケーション側のデータ条件・認証・実装に関する別確認事項として扱いました。
+AWS の検証環境は証跡取得後に削除済みです。
 
 ## SAA 学習上のポイント
 
@@ -262,17 +272,31 @@ AWS のネットワーク / ALB 構築とは切り分けて、アプリケーシ
 - CloudWatch Metrics と CloudWatch Logs の違い
 - ALB / Target Group / Health Check の関係
 - ALB が 2 AZ でも、EC2 が 1 台ならアプリ全体の高可用性にはならない
-- 検証用リソースはエビデンス取得後に削除し、コストを管理する
+- 検証用リソースはエビデンス取得後に削除し、不要な継続課金を避ける
 
 ## 後片付け
 
-本ハンズオンは短期検証を目的としているため、エビデンス取得後は課金リソースを削除します。
+本ハンズオンは短期検証を目的として実施しました。
+必要なエビデンス取得後、不要な継続課金を避けるため、ハンズオン専用の AWS リソースを削除しました。
 
-- Application Load Balancer
-- Target Group
-- Amazon RDS
-- EC2 / EBS（必要な証跡取得後）
-- 不要になった Security Group
-- CloudWatch Logs
-- IAM Role（他用途で使用しない場合）
+削除対象は以下のとおりです。
+
+- Application Load Balancer `invoice-alb`
+- Target Group `invoice-api-tg`
+- Amazon RDS for PostgreSQL
+- RDS の検証用スナップショット / DB Subnet Group
+- EC2 インスタンス / EBS
+- CloudWatch Logs `/invoice-saa/api`
+- EC2 用 IAM Role `invoice-ec2-cloudwatch-role`
+- ハンズオン用 Security Group
+- `invoice-saa-vpc`
+- Public / Private Subnet
+- Route Table / Internet Gateway など、ハンズオン用 VPC に属するネットワークリソース
+
+構築内容については、本 README とマスキング済みスクリーンショットを証跡として保存しています。
+AWS 上には本ハンズオンの検証環境を常設していません。
+
+> **コスト確認について**  
+> AWS の料金情報には反映遅延があるため、削除後も Billing / Cost Explorer を確認し、
+> EC2 / RDS / Elastic Load Balancing 等の利用量・コストが継続的に増えていないことを確認します。
 
